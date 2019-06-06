@@ -7,16 +7,22 @@
 
 
 ## Network Architecture
-- Backbone : VGG16, Resnet, Xepction, MobileNet
 
+- Gnerative Adversarial Network
+    - Generator
+        - Backbone : VGG16, Resnet, Xepction, MobileNet
+    - Discriminator
+        - Backbone : VGG16, Resnet, Xepction, MobileNet
+        
 ## Training Method
 - Contrast Loss : Mean Square Error
-- Context Loss  : Mutual Information (Not yet...) 
+- Context Loss  : Perceptual Loss or Mutual Information (Not yet...)
 
 ## To do list
-- [x] Reading Data
-- [x] Build Network Architecture
+- [ ] Reading Data
+- [ ] Build Generator Architecture
+- [ ] Build Discriminator Architecture
 - [ ] Define Loss Function
-- [ ] Making Generator 
+- [ ] Making Data Generator 
 - [ ] Training Netrowk
 
