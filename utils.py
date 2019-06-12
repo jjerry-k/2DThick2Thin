@@ -24,7 +24,6 @@ def load_nii_multi(PAT_PATH):
     Output
     t1_img : Image of patient's T1
     dante_img : Image of patient's DANTE
-    t2_img : Image of patient's T2
     """
     SEQ_LISTS = ['t1setrafs', 'T1SPACE09mmISOPOSTwDANTE', 't2tsetra']
     t1_PATH = os.path.join(PAT_PATH, SEQ_LISTS[0])
@@ -35,17 +34,13 @@ def load_nii_multi(PAT_PATH):
     dante_rsl = [img for img in os.listdir(dante_PATH) if '_rsl' in img]
     dante_PATH = os.path.join(dante_PATH, dante_rsl[0])
 
-    t2_PATH = os.path.join(PAT_PATH, SEQ_LISTS[2])
-    t2_rsl = [img for img in os.listdir(t2_PATH) if '_rsl' in img]
-    t2_PATH = os.path.join(t2_PATH, t2_rsl[0])
-    
+
     t1_img = load_nii(t1_PATH)
     dante_img = load_nii(dante_PATH)
-    t2_img = load_nii(t2_PATH)
     
-    return t1_img[:,2:-2,:], dante_img[:,2:-2,:], t2_img[:,2:-2,:]
+    return t1_img[:,2:-2,:], dante_img[:,2:-2,:]
 
-def data_loader(PATH, val_idx = 0):
+def data_loader_v1(PATH, val_idx = 0):
     train_t1 = None
     train_dante = None
     Pat_lists = sorted(os.listdir(PATH))
@@ -53,7 +48,7 @@ def data_loader(PATH, val_idx = 0):
     Pat_lists.pop(val_idx)
     for i, pat in enumerate(Pat_lists):
         Pat_path = os.path.join(PATH, pat)
-        tmp_t1, tmp_dante, _ = load_nii_multi(Pat_path)
+        tmp_t1, tmp_dante = load_nii_multi(Pat_path)
         tmp_dante = np.transpose(tmp_dante, [2, 0, 1])
         tmp_dante = np.reshape(tmp_dante, [len(tmp_dante)//6, 6, 320, 256])
         tmp_dante = np.transpose(tmp_dante, [0, 2, 3, 1])
@@ -66,13 +61,224 @@ def data_loader(PATH, val_idx = 0):
             train_dante = np.concatenate([train_dante, tmp_dante[2:]], axis=0)
     
     Pat_path = os.path.join(PATH, val_pat)
-    val_t1, val_dante, _ = load_nii_multi(Pat_path)
+    val_t1, val_dante = load_nii_multi(Pat_path)
     val_dante = np.transpose(val_dante, [2, 0, 1])
     val_dante = np.reshape(val_dante, [len(val_dante)//6, 6, 320, 256])
     val_dante = np.transpose(val_dante, [0, 2, 3, 1])
     val_t1 = np.expand_dims(np.transpose(val_t1, [2, 0, 1]), -1)
     
     return train_t1, train_dante, val_t1[2:], val_dante[2:]
+
+def data_loader_v2(PATH, val_idx = 0):
+    train_low = []
+    train_high = None
+    
+    val_low = []
+    
+    test_low = []
+    
+    Pat_lists = sorted(os.listdir(PATH))
+    val_pat = Pat_lists[val_idx]
+    Pat_lists.pop(val_idx)
+    for i, pat in enumerate(Pat_lists):
+        Pat_path = os.path.join(PATH, pat)
+        tmp_t1, tmp_dante = load_nii_multi(Pat_path) # (H, W, S)
+        h, w, s = tmp_dante.shape
+        
+        tmp_dante = np.array(np.dsplit(tmp_dante, s/6)) # (S/6, H, W, 6)
+        
+        # Make Train Low
+        mean_dante = tmp_dante.mean(axis=-1)  # (S/6, H, W)
+        for j in range(s//6):
+            empty = np.zeros((3, h, w))
+            if j==0:
+                continue#empty[1:,...] = mean_dante[:2]
+            elif j==s/6-1:
+                empty[:2,...] = mean_dante[-2:]
+            else:
+                empty = mean_dante[j-1:j+2]
+            
+            empty = np.transpose(empty, [1, 2, 0])
+            train_low.append(empty)
+        
+        
+        tmp_t1 = np.transpose(tmp_t1, (2, 0, 1)) # (S, H, W)
+        for j in range(s//6):
+            empty = np.zeros((3, h, w))
+            if j==0:
+                continue#empty[1:,...] = tmp_t1[:2]
+            elif j==s/6-1:
+                empty[:2,...] = tmp_t1[-2:]
+            else:
+                empty = tmp_t1[j-1:j+2]
+            
+            empty = np.transpose(empty, [1, 2, 0])
+            test_low.append(empty)
+            
+        if i==0:
+            train_high = tmp_dante
+        else:
+            train_high = np.concatenate([train_high, tmp_dante], axis=0)
+    
+    Pat_path = os.path.join(PATH, val_pat)
+    test_t1, val_high = load_nii_multi(Pat_path)
+    h, w, s = val_high.shape
+    val_high = np.array(np.dsplit(val_high, s/6))
+    mean_dante = val_high.mean(axis=-1)  # (S/6, H, W)
+    for j in range(s//6):
+        empty = np.zeros((3, h, w))
+        if j==0:
+            continue#empty[1:,...] = mean_dante[:2]
+        elif j==s/6-1:
+            empty[:2,...] = mean_dante[-2:]
+        else:
+            empty = mean_dante[j-1:j+2]
+
+        empty = np.transpose(empty, [1, 2, 0])
+        val_low.append(empty)
+
+
+    test_t1 = np.transpose(test_t1, (2, 0, 1)) # (S, H, W)
+    for j in range(s//6):
+        empty = np.zeros((3, h, w))
+        if j==0:
+            continue#empty[1:,...] = test_t1[:2]
+        elif j==s/6-1:
+            empty[:2,...] = test_t1[-2:]
+        else:
+            empty = test_t1[j-1:j+2]
+
+        empty = np.transpose(empty, [1, 2, 0])
+        test_low.append(empty)
+        
+    #val_dante = np.transpose(val_dante, [2, 0, 1])
+    #val_dante = np.reshape(val_dante, [len(val_dante)//6, 6, 320, 256])
+    #val_dante = np.transpose(val_dante, [0, 2, 3, 1])
+    #val_t1 = np.expand_dims(np.transpose(val_t1, [2, 0, 1]), -1)
+    
+    return np.array(train_low), train_high, np.array(val_low), val_high[1:], np.array(test_low)
+
+
+def data_loader_v3(PATH, val_idx = 0):
+    train_low = []
+    train_high = None
+    val_low = []
+    test_low = []
+    
+    # Loading Patient list & Seperating Train lists & Validation lists
+    Pat_lists = sorted(os.listdir(PATH))
+    val_pat = Pat_lists[val_idx]
+    Pat_lists.pop(val_idx)
+    
+    
+    # Train lists loop
+    for i, pat in enumerate(Pat_lists):
+        
+        # Load t1, dante
+        Pat_path = os.path.join(PATH, pat)
+        tmp_t1, tmp_dante = load_nii_multi(Pat_path) # (H, W, S)
+        
+        # Spliting dante data (H, W, S) -> (S/6, H, W, 6)
+        _, _, s = tmp_dante.shape
+        tmp_dante = np.array(np.dsplit(tmp_dante, s/6))[1:] # 첫번째 data는 불량으로 제외.
+        batch, h, w, _ = tmp_dante.shape
+        
+        # Make Train Low
+        mean_dante = tmp_dante.mean(axis=-1)  # (S/6, H, W)
+        for j in range(batch):
+            empty = np.zeros((3, h, w))
+            if j==0:
+                empty[1:,...] = mean_dante[:2]
+            elif j==batch-1:
+                empty[:2,...] = mean_dante[-2:]
+            else:
+                empty = mean_dante[j-1:j+2]
+            
+            empty = np.transpose(empty, [1, 2, 0])
+            train_low.append(empty)
+        
+        # Make Train High
+        tmp_high = np.zeros((batch, h, w, 12))
+        tmp_high[..., 3:-3] = tmp_dante
+        tmp_high[1:, ..., :3] = tmp_dante[:-1, ..., 3:]
+        tmp_high[:-1, ..., -3:] = tmp_dante[1:, ..., :3]
+        
+        if i==0:
+            train_high = tmp_high
+        else:
+            train_high = np.concatenate([train_high, tmp_high], axis=0)
+            
+        # Make Test Low
+        tmp_t1 = np.transpose(tmp_t1, (2, 0, 1)) # (S, H, W)
+        batch, _, _ = tmp_t1.shape
+        for j in range(batch):
+            empty = np.zeros((3, h, w))
+            if j==0:
+                empty[1:,...] = tmp_t1[:2]
+            elif j==batch-1:
+                empty[:2,...] = tmp_t1[-2:]
+            else:
+                empty = tmp_t1[j-1:j+2]
+            
+            empty = np.transpose(empty, [1, 2, 0])
+            test_low.append(empty)
+        
+    # Validation
+    
+    # Load image
+    Pat_path = os.path.join(PATH, val_pat)
+    test_t1, tmp_val_high = load_nii_multi(Pat_path)
+    
+    # Spliting dante data (H, W, S) -> (S/6, H, W, 6)
+    h, w, s = tmp_val_high.shape
+    tmp_val_high = np.array(np.dsplit(tmp_val_high, s/6))[1:]
+    batch, h, w, _ = tmp_val_high.shape
+    
+    # Make Validation Low
+    mean_dante = tmp_val_high.mean(axis=-1)  # (S/6, H, W)
+    
+    for j in range(batch):
+        empty = np.zeros((3, h, w))
+        if j==0:
+            empty[1:,...] = mean_dante[:2]
+        elif j==batch-1:
+            empty[:2,...] = mean_dante[-2:]
+        else:
+            empty = mean_dante[j-1:j+2]
+
+        empty = np.transpose(empty, [1, 2, 0])
+        val_low.append(empty)
+
+    # Make Train High
+    val_high = np.zeros((batch, h, w, 12))
+    val_high[..., 3:-3] = tmp_val_high
+    val_high[1:, ..., :3] = tmp_val_high[:-1, ..., 3:]
+    val_high[:-1, ..., -3:] = tmp_val_high[1:, ..., :3]
+    
+    
+    
+    
+    test_t1 = np.transpose(test_t1, (2, 0, 1)) # (S, H, W)
+    for j in range(s//6):
+        empty = np.zeros((3, h, w))
+        if j==0:
+            empty[1:,...] = test_t1[:2]
+        elif j==s/6-1:
+            empty[:2,...] = test_t1[-2:]
+        else:
+            empty = test_t1[j-1:j+2]
+
+        empty = np.transpose(empty, [1, 2, 0])
+        test_low.append(empty)
+        
+    #val_dante = np.transpose(val_dante, [2, 0, 1])
+    #val_dante = np.reshape(val_dante, [len(val_dante)//6, 6, 320, 256])
+    #val_dante = np.transpose(val_dante, [0, 2, 3, 1])
+    #val_t1 = np.expand_dims(np.transpose(val_t1, [2, 0, 1]), -1)
+    
+    return np.array(train_low), train_high, np.array(val_low), val_high, np.array(test_low)
+
+
 
 from keras import layers, models, backend
 from keras.applications import VGG16, ResNet50, MobileNet, DenseNet121

@@ -5,6 +5,9 @@ sys.path.append(['.','..'])
 from utils import *
 
 def generator(model = 'vgg', case=1):
+    '''
+    model : 'vgg', 'resnet', 'xception', 'mobile', 'dense'
+    '''
     block_dict = {
         "vgg" : ['block5_conv3', 'block4_conv3', 'block3_conv3', 'block2_conv2', 'block1_conv2'],
         "resnet" : ['activation_40', 'activation_22', 'activation_10', 'activation_1'],
@@ -14,32 +17,32 @@ def generator(model = 'vgg', case=1):
     }
     # ========= Encoder ==========
     print("=========== Information about Backbone ===========")
-    base_model = load_base_model(model, input_shape=(None, None, 1))
+    base_model = load_base_model(model, input_shape=(None, None, 3))
     x = layers.Conv2D(1024, 3, padding='same', activation='relu')(base_model.output) # H/32
 
     # ========= Decoder ==========
     x = layers.UpSampling2D(interpolation='bilinear')(x) # H/16
     x = layers.concatenate([x, base_model.get_layer(block_dict[model][0]).output], axis = -1)
-    x = layers.SeparableConv2D(512, 3, padding='same', activation='relu')(x)
+    x = layers.Conv2D(512, 3, padding='same', activation='relu')(x)
 
     x = layers.UpSampling2D(interpolation='bilinear')(x) # H/8
     x = layers.concatenate([x, base_model.get_layer(block_dict[model][1]).output], axis = -1)
-    x = layers.SeparableConv2D(256, 3, padding='same', activation='relu')(x)
+    x = layers.Conv2D(256, 3, padding='same', activation='relu')(x)
 
     x = layers.UpSampling2D(interpolation='bilinear')(x) # H/4
     x = layers.concatenate([x, base_model.get_layer(block_dict[model][2]).output], axis = -1)
-    x = layers.SeparableConv2D(128, 3, padding='same', activation='relu')(x)
+    x = layers.Conv2D(128, 3, padding='same', activation='relu')(x)
 
     x = layers.UpSampling2D(interpolation='bilinear')(x) # H/2
     x = layers.concatenate([x, base_model.get_layer(block_dict[model][3]).output], axis = -1)
-    x = layers.SeparableConv2D(64, 3, padding='same', activation='relu')(x)
+    x = layers.Conv2D(64, 3, padding='same', activation='relu')(x)
 
     x = layers.UpSampling2D(interpolation='bilinear')(x) # H
     if model == 'vgg':
         x = layers.concatenate([x, base_model.get_layer(block_dict[model][4]).output], axis = -1)
-    x = layers.Conv2D(6, 3, padding='same')(x)
+    output = layers.Conv2D(6, 3, padding='same', activation='relu')(x)
 
-    output = layers.DepthwiseConv2D(3, padding='same')(x)
+    #output = layers.DepthwiseConv2D(3, padding='same')(x)
     if case == 2:
         Net = models.Model(base_model.input, output)
     else : 
@@ -54,6 +57,9 @@ def generator(model = 'vgg', case=1):
     return Net
 
 def discriminator(model = 'vgg', case=1):
+    '''
+    model : 'vgg', 'resnet', 'xception', 'mobile', 'dense'
+    '''
     block_dict = {
         "vgg" : ['block5_conv3', 'block4_conv3', 'block3_conv3', 'block2_conv2', 'block1_conv2'],
         "resnet" : ['activation_40', 'activation_22', 'activation_10', 'activation_1'],
