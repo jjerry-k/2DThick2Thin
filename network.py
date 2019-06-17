@@ -4,7 +4,7 @@ import sys
 sys.path.append(['.','..'])
 from utils import *
 
-def generator(model = 'vgg', case=1):
+def generator(model = 'vgg', n_slice=6, case=1):
     '''
     model : 'vgg', 'resnet', 'xception', 'mobile', 'dense'
     '''
@@ -40,7 +40,7 @@ def generator(model = 'vgg', case=1):
     x = layers.UpSampling2D(interpolation='bilinear')(x) # H
     if model == 'vgg':
         x = layers.concatenate([x, base_model.get_layer(block_dict[model][4]).output], axis = -1)
-    output = layers.Conv2D(6, 3, padding='same', activation='relu')(x)
+    output = layers.Conv2D(n_slice, 3, padding='same', activation='relu')(x)
 
     #output = layers.DepthwiseConv2D(3, padding='same')(x)
     if case == 2:
@@ -56,7 +56,7 @@ def generator(model = 'vgg', case=1):
     print("Non-Trainable Parameter of Model : ", format(non_train_params, ','))
     return Net
 
-def discriminator(model = 'vgg', case=1):
+def discriminator(model = 'vgg', n_slice=6, case=1):
     '''
     model : 'vgg', 'resnet', 'xception', 'mobile', 'dense'
     '''
@@ -69,7 +69,7 @@ def discriminator(model = 'vgg', case=1):
     }
     # ========= Extractor ==========
     print("=========== Information about Backbone ===========")
-    base_model = load_base_model(model, input_shape=(None, None, 6))
+    base_model = load_base_model(model, input_shape=(None, None, n_slice))
     texture = layers.Conv2D(1024, 3, padding='same', activation='relu')(base_model.output) # H/32
     
     # ========= Classifier ==========
