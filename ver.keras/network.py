@@ -1,4 +1,5 @@
-from tensorflow.keras import layers, models, activations, optimizers
+from keras import backend as K
+from keras import layers, models, activations, optimizers
 import sys
 sys.path.append(['.','..'])
 from utils import *

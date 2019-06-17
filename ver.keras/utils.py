@@ -1,8 +1,9 @@
 import os
 import numpy as np
 import nibabel as nib
-from tensorflow.keras import layers, models
-from tensorflow.keras.applications import VGG16, ResNet50, MobileNet, DenseNet121
+from keras import layers, models
+from keras.applications import VGG16, ResNet50, MobileNet, DenseNet121
+from keras import backend as K
 
 def load_nii(PATH):
     """
@@ -330,6 +331,11 @@ def load_base_model(backbone = 'vgg', **params):
     print("Non-Trainable Parameter of Model : ", format(non_train_params, ','))
     return base_model
 
+
+
+def layer_mean(x):
+    x = K.mean(x, axis=-1, keepdims=True)
+    return x
 
 
 
