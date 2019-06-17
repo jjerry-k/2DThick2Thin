@@ -22,28 +22,27 @@
 
 - Gnerative Adversarial Network
     - Generator
-        - Backbone : VGG16, Resnet, Xepction, MobileNet, DenseNet
+        - Backbone : VGG16, Resnet, Xepction, MobileNet, **DenseNet**
     - Discriminator
-        - Backbone : VGG16, Resnet, Xepction, MobileNet, DenseNet
+        - Backbone : VGG16, Resnet, Xepction, MobileNet, **DenseNet**
         
 ## Training Method
 - Similarity Loss : Mean Square Error
 
 
-## 1st Approach
+## Result
+
+### 1st Approach
 
 <img src="./figure/data_01.png">
 
+- Evaluation 결과 6장 단위로 영상이 툭툭 튀는 현상 발생.
 
-## 2nd Approach
+### 2nd Approach
 
 <img src="./figure/data_02.png">
 
-## To do list
-- [X] Reading Data
-- [X] Build Generator Architecture
-- [X] Build Discriminator Architecture
-- [X] Define Loss Function
-- [X] Making Data Generator 
-- [X] Training Netrowk
+<img src="./figure/baseline_loss.png">
+
+
 
