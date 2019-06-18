@@ -118,9 +118,9 @@ def data_loader_v2(PATH, val_idx = 0):
             test_low.append(empty)
             
         if i==0:
-            train_high = tmp_dante
+            train_high = tmp_dante[1:]
         else:
-            train_high = np.concatenate([train_high, tmp_dante], axis=0)
+            train_high = np.concatenate([train_high, tmp_dante[1:]], axis=0)
     
     Pat_path = os.path.join(PATH, val_pat)
     test_t1, val_high = load_nii_multi(Pat_path)
