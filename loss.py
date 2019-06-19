@@ -17,9 +17,12 @@ def Custom_SSIM(y_true, y_pred):
     y_true : [batch, height, width, channel]
     y_pred : [batch, height, width, channel]
     """
-    b, h, w, c = y_true.get_shape()
-    tmp_true = tf.reshape(tf.transpose(y_true, [0, 3, 1, 2]), [b*c, h, w, 1])
-    tmp_pred = tf.reshape(tf.transpose(y_pred, [0, 3, 1, 2]), [b*c, h, w, 1])
+    #b, h, w, c = tf.shape(y_true)
+    #print(tf.shape(y_true))
+    tmp_true = tf.reshape(tf.transpose(y_true, [0, 3, 1, 2]),
+                          [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1], tf.shape(y_true)[2], 1])
+    tmp_pred = tf.reshape(tf.transpose(y_pred, [0, 3, 1, 2]), 
+                          [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1], tf.shape(y_true)[2], 1])
     true_max = tf.reduce_max(y_true)
     
     
@@ -30,7 +33,7 @@ def Custom_SSIM(y_true, y_pred):
                       default=f1, exclusive=False)
     
     output = tf.image.ssim(tmp_true, tmp_pred, max_val)
-    output = tf.reshape(output, [b, c])
+    output = tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1]])
     return 1-tf.reduce_mean(output, axis=1)
 
 def Custom_MS_SSIM(y_true, y_pred):
@@ -38,9 +41,11 @@ def Custom_MS_SSIM(y_true, y_pred):
     y_true : [batch, height, width, channel]
     y_pred : [batch, height, width, channel]
     """
-    b, h, w, c = y_true.get_shape()
-    tmp_true = tf.reshape(tf.transpose(y_true, [0, 3, 1, 2]), [b*c, h, w, 1])
-    tmp_pred = tf.reshape(tf.transpose(y_pred, [0, 3, 1, 2]), [b*c, h, w, 1])
+    #b, h, w, c = tf.shape(y_true)
+    tmp_true = tf.reshape(tf.transpose(y_true, [0, 3, 1, 2]), 
+                          [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1], tf.shape(y_true)[2], 1])
+    tmp_pred = tf.reshape(tf.transpose(y_pred, [0, 3, 1, 2]), 
+                          [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1], tf.shape(y_true)[2], 1])
     true_max = tf.reduce_max(y_true)
     
     f1 = lambda: tf.constant(1)
@@ -49,7 +54,7 @@ def Custom_MS_SSIM(y_true, y_pred):
     max_val = tf.case([(tf.greater(true_max, 255), f3), (tf.greater(true_max, 1), f2)], default=f1)
     
     output = tf.image.ssim_multiscale(tmp_true, tmp_pred, max_val, [0.208, 0.589, 0.203])
-    output = tf.reshape(output, [b, c])
+    output = tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1]])
     return 1-tf.reduce_mean(output, axis=1)
     
 def mutual_information_single(hist2d):
@@ -66,9 +71,9 @@ def tf_joint_histogram(y_true, y_pred):
     y_true : [batch, height, width, channel]
     y_pred : [batch, height, width, channel]
     """
-    
+    #print("joint1")
     vmax = 255
-    b, h, w, c = y_true.get_shape()
+    #b, h, w, c = tf.shape(y_true)
     
     
     # Intensity Scaling
@@ -76,20 +81,23 @@ def tf_joint_histogram(y_true, y_pred):
     tmp_true = tf.round(y_true / max_int * vmax)
     tmp_pred = tf.round(y_pred / max_int * vmax)
     
-    
+    #print("joint2")
     # [batch, height, width, channel]
     # -> [batch, height * width, channel]
     # -> [batch, channel, height * width]
-    flat_true = tf.transpose(tf.reshape(tmp_true, [b, h*w, c]), [0, 2, 1])
-    flat_true = tf.reshape(flat_true, [b*c, h*w])
-    flat_pred = tf.transpose(tf.reshape(tmp_pred, [b, h*w, c]), [0, 2, 1])
-    flat_pred = tf.reshape(flat_pred, [b*c, h*w])
-    
+    flat_true = tf.transpose(tf.reshape(tmp_true,
+                                        [tf.shape(y_true)[0], tf.shape(y_true)[1]*tf.shape(y_true)[2], tf.shape(y_true)[-1]]), [0, 2, 1])
+    flat_true = tf.reshape(flat_true, [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1]*tf.shape(y_true)[2]])
+    flat_pred = tf.transpose(tf.reshape(tmp_pred, [tf.shape(y_true)[0], tf.shape(y_true)[1]*tf.shape(y_true)[2], tf.shape(y_true)[-1]]), [0, 2, 1])
+    flat_pred = tf.reshape(flat_pred, [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1]*tf.shape(y_true)[2]])
+    #print("joint3")
     output = (flat_pred * (vmax+1)) + (flat_true+1)
+    #print("joint4")
     # [b*c, 65536]
     output = tf.map_fn(lambda x : tf.histogram_fixed_width(x, value_range=[1, (vmax+1)**2], nbins=(vmax+1)**2), output)
     # [b, c, 256, 256] -> [b, 256, 256, c]
-    output = tf.transpose(tf.reshape(output, [b, c, vmax+1, vmax+1]), [0, 2, 3, 1])
+    output = tf.transpose(tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1], vmax+1, vmax+1]), [0, 2, 3, 1])
+    #print("joint5")
     return output, y_true, y_pred
 
 def mutual_information(y_true, y_pred):
@@ -99,11 +107,12 @@ def mutual_information(y_true, y_pred):
     """
     # [b, 256, 256, c]
     joint_histogram, _, _ = tf_joint_histogram(y_true, y_pred)
-    b, h, w, c = joint_histogram.get_shape()
-    
+    #b, h, w, c = tf.shape(joint_histogram)
+    #print("mutual1")
     # [b*c, 256, 256]
-    joint_histogram = tf.reshape(tf.transpose(joint_histogram, [0, 3, 1, 2]), [b*c, h, w])
-    
+    joint_histogram = tf.reshape(tf.transpose(joint_histogram, [0, 3, 1, 2]), [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1], tf.shape(y_true)[2]])
+    #print("mutual2")
     output = tf.map_fn(lambda x : mutual_information_single(x), joint_histogram, dtype=tf.float64)
-    output = tf.reshape(output, [b, c])
-    return 1 - tf.reduce_mean(output, axis=1)
+    #print("mutual3")
+    output = tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1]])
+    return tf.cast(1 - tf.reduce_mean(output, axis=1), 'float32')
