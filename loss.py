@@ -94,7 +94,7 @@ def tf_joint_histogram(y_true, y_pred):
     output = (flat_pred * (vmax+1)) + (flat_true+1)
     #print("joint4")
     # [b*c, 65536]
-    output = tf.map_fn(lambda x : tf.histogram_fixed_width(x, value_range=[1, (vmax+1)**2], nbins=(vmax+1)**2), output)
+    output = tf.map_fn(lambda x : tf.cast(tf.histogram_fixed_width(x, value_range=[1, (vmax+1)**2], nbins=(vmax+1)**2), 'float32'), output)
     # [b, c, 256, 256] -> [b, 256, 256, c]
     output = tf.transpose(tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1], vmax+1, vmax+1]), [0, 2, 3, 1])
     #print("joint5")
@@ -110,9 +110,9 @@ def mutual_information(y_true, y_pred):
     #b, h, w, c = tf.shape(joint_histogram)
     #print("mutual1")
     # [b*c, 256, 256]
-    joint_histogram = tf.reshape(tf.transpose(joint_histogram, [0, 3, 1, 2]), [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1], tf.shape(y_true)[2]])
+    reshape_joint_histogram = tf.reshape(tf.transpose(joint_histogram, [0, 3, 1, 2]), [tf.shape(joint_histogram)[0]*tf.shape(joint_histogram)[-1], tf.shape(joint_histogram)[1], tf.shape(joint_histogram)[2]])
     #print("mutual2")
-    output = tf.map_fn(lambda x : mutual_information_single(x), joint_histogram, dtype=tf.float64)
+    output = tf.map_fn(lambda x : mutual_information_single(x), reshape_joint_histogram, dtype=tf.float64)
     #print("mutual3")
-    output = tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1]])
+    output = tf.reshape(output, [tf.shape(joint_histogram)[0], tf.shape(joint_histogram)[-1]])
     return tf.cast(1 - tf.reduce_mean(output, axis=1), 'float32')
