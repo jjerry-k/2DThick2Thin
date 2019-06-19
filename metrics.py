@@ -29,7 +29,7 @@ def PSNR(y_true, y_pred, d_r):
     d_r : dynamic range
     '''
     mse = MSE(y_true, y_pred)
-    return 10 * np.log10((d_r**2)/mse) #20*np.log10(65535) - 
+    return 10 * np.log10((d_r**2)/mse)
 
 def SSIM(y_true, y_pred, d_r):
     b, _, _, ch = y_true.shape
