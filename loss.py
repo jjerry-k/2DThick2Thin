@@ -1,5 +1,11 @@
 import tensorflow as tf
 
+def Custom_L1(y_true, y_pred):
+    Err = y_true - y_pred
+    Abs = tf.abs(Err)
+    Mean = tf.reduce_mean(Abs, axis = [1, 2, 3])
+    return Mean
+
 def Custom_MSE(y_true, y_pred):
     Err = y_true - y_pred
     Square = tf.square(Err)
