@@ -18,7 +18,7 @@ def load_nii(PATH):
     
     return img
 
-def load_nii_multi(PAT_PATH, crop = True):
+def load_nii_multi(PAT_PATH, img = None):
     """
     Input
     PATH : Path of patient
@@ -27,25 +27,47 @@ def load_nii_multi(PAT_PATH, crop = True):
     t1_img : Image of patient's T1
     dante_img : Image of patient's DANTE
     """
-    SEQ_LISTS = ['t1setrafs', 'T1SPACE09mmISOPOSTwDANTE', 't2tsetra']
+    SEQ_LISTS = ['t1setrafs', 'T1SPACE09mmISOPOSTwDANTE']
     t1_PATH = os.path.join(PAT_PATH, SEQ_LISTS[0])
-    t1_rsl = [img for img in os.listdir(t1_PATH) if '_rsl' in img]
-    t1_PATH = os.path.join(t1_PATH, t1_rsl[0])
+    t1_img_list = [img for img in os.listdir(t1_PATH) if '.nii' in img]
+    #print(t1_img_list)
+    t1_img_PATH = os.path.join(t1_PATH, t1_img_list[0])
 
     dante_PATH = os.path.join(PAT_PATH, SEQ_LISTS[1])
-    dante_rsl = [img for img in os.listdir(dante_PATH) if '_rsl' in img]
-    dante_PATH = os.path.join(dante_PATH, dante_rsl[0])
+    dante_img_list = [img for img in os.listdir(dante_PATH) if '.nii' in img]
+    #print(dante_img_list)
+    dante_img_PATH = os.path.join(dante_PATH, dante_img_list[0])
 
-
-    t1_img = load_nii(t1_PATH)
-    dante_img = load_nii(dante_PATH)
-    
-    if crop:
+    if img == 'rsl':
+        t1_img_PATH = os.path.join(t1_PATH, t1_img_list[1])
+        dante_img_PATH = os.path.join(dante_PATH, dante_img_list[1])
+        
+        t1_img = load_nii(t1_img_PATH)
+        dante_img = load_nii(dante_img_PATH)
+        
         return t1_img[:,2:-2,:], dante_img[:,2:-2,:]
-    else : 
-        return t1_img, dante_img
+    
+    else :
+        t1_img = load_nii(t1_img_PATH)
+        dante_img = load_nii(dante_img_PATH)
+        #print(dante_img.shape)
+        n_slice = dante_img.shape[-1]
+        low_slices = n_slice//6
+        high_slices = low_slices*6
+        diff = n_slice-high_slices
+        half = diff//2
+        #print(diff, half)
+        if diff == 0:
+            return t1_img[:,2:-2,:], dante_img
+        else:
+            if diff % 2 == 0:
+                dante_img = dante_img[..., half:-half]
+            else :
+                dante_img = dante_img[..., half:-(half+1)]
+            #print(dante_img.shape)    
+            return t1_img[:,2:-2,:], dante_img
 
-def data_loader_v1(PATH, val_idx = 0, crop = True):
+def data_loader_v1(PATH, val_idx = 0, img = 'rsl'):
     train_t1 = None
     train_dante = None
     Pat_lists = sorted(os.listdir(PATH))
@@ -53,7 +75,7 @@ def data_loader_v1(PATH, val_idx = 0, crop = True):
     Pat_lists.pop(val_idx)
     for i, pat in enumerate(Pat_lists):
         Pat_path = os.path.join(PATH, pat)
-        tmp_t1, tmp_dante = load_nii_multi(Pat_path, crop = crop)
+        tmp_t1, tmp_dante = load_nii_multi(Pat_path, img = img)
         tmp_dante = np.transpose(tmp_dante, [2, 0, 1])
         tmp_dante = np.reshape(tmp_dante, [len(tmp_dante)//6, 6, 320, 256])
         tmp_dante = np.transpose(tmp_dante, [0, 2, 3, 1])
@@ -66,7 +88,7 @@ def data_loader_v1(PATH, val_idx = 0, crop = True):
             train_dante = np.concatenate([train_dante, tmp_dante[2:]], axis=0)
     
     Pat_path = os.path.join(PATH, val_pat)
-    val_t1, val_dante = load_nii_multi(Pat_path, crop = crop)
+    val_t1, val_dante = load_nii_multi(Pat_path,  img = img)
     val_dante = np.transpose(val_dante, [2, 0, 1])
     val_dante = np.reshape(val_dante, [len(val_dante)//6, 6, 320, 256])
     val_dante = np.transpose(val_dante, [0, 2, 3, 1])
@@ -74,7 +96,7 @@ def data_loader_v1(PATH, val_idx = 0, crop = True):
     
     return train_t1, train_dante, val_t1[2:], val_dante[2:]
 
-def data_loader_v2(PATH, val_idx = 0, crop = True):
+def data_loader_v2(PATH, val_idx = 0, img = 'rsl'):
     train_low = []
     train_high = None
     
@@ -87,7 +109,7 @@ def data_loader_v2(PATH, val_idx = 0, crop = True):
     Pat_lists.pop(val_idx)
     for i, pat in enumerate(Pat_lists):
         Pat_path = os.path.join(PATH, pat)
-        tmp_t1, tmp_dante = load_nii_multi(Pat_path, crop = crop) # (H, W, S)
+        tmp_t1, tmp_dante = load_nii_multi(Pat_path,  img = img) # (H, W, S)
         h, w, s = tmp_dante.shape
         
         tmp_dante = np.array(np.dsplit(tmp_dante, s/6)) # (S/6, H, W, 6)
@@ -126,7 +148,7 @@ def data_loader_v2(PATH, val_idx = 0, crop = True):
             train_high = np.concatenate([train_high, tmp_dante[1:]], axis=0)
     
     Pat_path = os.path.join(PATH, val_pat)
-    test_t1, val_high = load_nii_multi(Pat_path, crop = crop)
+    test_t1, val_high = load_nii_multi(Pat_path,  img = img)
     h, w, s = val_high.shape
     val_high = np.array(np.dsplit(val_high, s/6))
     mean_dante = val_high.mean(axis=-1)  # (S/6, H, W)
@@ -164,7 +186,7 @@ def data_loader_v2(PATH, val_idx = 0, crop = True):
     return np.array(train_low), train_high, np.array(val_low), val_high[1:], np.array(test_low)
 
 
-def data_loader_v3(PATH, val_idx = 0, crop = True):
+def data_loader_v3(PATH, val_idx = 0, img = 'rsl'):
     train_low = []
     train_high = None
     val_low = []
@@ -178,16 +200,17 @@ def data_loader_v3(PATH, val_idx = 0, crop = True):
     
     # Train lists loop
     for i, pat in enumerate(Pat_lists):
-        
         # Load t1, dante
         Pat_path = os.path.join(PATH, pat)
-        tmp_t1, tmp_dante = load_nii_multi(Pat_path, crop = crop) # (H, W, S)
+        #print(Pat_path)
+        tmp_t1, tmp_dante = load_nii_multi(Pat_path,  img = img) # (H, W, S)
         
         # Spliting dante data (H, W, S) -> (S/6, H, W, 6)
         _, _, s = tmp_dante.shape
+        #print(tmp_dante.shape)
         tmp_dante = np.array(np.dsplit(tmp_dante, s/6))[1:] # 첫번째 data는 불량으로 제외.
         batch, h, w, _ = tmp_dante.shape
-        sequence['train'].append(len(batch))
+        #sequence['train'].append(len(batch))
         # Make Train Low
         mean_dante = tmp_dante.mean(axis=-1)  # (S/6, H, W)
         for j in range(batch):
@@ -215,7 +238,7 @@ def data_loader_v3(PATH, val_idx = 0, crop = True):
             
         # Make Test Low
         tmp_t1 = np.transpose(tmp_t1, (2, 0, 1)) # (S, H, W)
-        batch, _, _ = tmp_t1.shape
+        batch, h, w = tmp_t1.shape
         for j in range(batch):
             empty = np.zeros((3, h, w))
             if j==0:
@@ -227,12 +250,12 @@ def data_loader_v3(PATH, val_idx = 0, crop = True):
             
             empty = np.transpose(empty, [1, 2, 0])
             test_low.append(empty)
-        sequence['test'].append(batch)
+        #sequence['test'].append(batch)
     # Validation
     
     # Load image
     Pat_path = os.path.join(PATH, val_pat)
-    test_t1, tmp_val_high = load_nii_multi(Pat_path, crop = crop)
+    test_t1, tmp_val_high = load_nii_multi(Pat_path,  img = img)
     
     # Spliting dante data (H, W, S) -> (S/6, H, W, 6)
     h, w, s = tmp_val_high.shape
@@ -264,6 +287,7 @@ def data_loader_v3(PATH, val_idx = 0, crop = True):
     
     
     test_t1 = np.transpose(test_t1, (2, 0, 1)) # (S, H, W)
+    s, h, w = test_t1.shape
     for j in range(s//6):
         empty = np.zeros((3, h, w))
         if j==0:
@@ -281,7 +305,7 @@ def data_loader_v3(PATH, val_idx = 0, crop = True):
     #val_dante = np.transpose(val_dante, [0, 2, 3, 1])
     #val_t1 = np.expand_dims(np.transpose(val_t1, [2, 0, 1]), -1)
     
-    return np.array(train_low), train_high, np.array(val_low), val_high, np.array(test_low), sequence
+    return np.array(train_low), train_high, np.array(val_low), val_high, np.array(test_low)
 
 
 

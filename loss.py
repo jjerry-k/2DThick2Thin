@@ -23,8 +23,10 @@ def Custom_SSIM(y_true, y_pred):
     y_true : [batch, height, width, channel]
     y_pred : [batch, height, width, channel]
     """
-    #b, h, w, c = tf.shape(y_true)
+    # b, h, w, c = tf.shape(y_true)
     #print(tf.shape(y_true))
+    
+    # [b, h, w, c] -> [b*c, h, w]
     tmp_true = tf.reshape(tf.transpose(y_true, [0, 3, 1, 2]),
                           [tf.shape(y_true)[0]*tf.shape(y_true)[-1], tf.shape(y_true)[1], tf.shape(y_true)[2], 1])
     tmp_pred = tf.reshape(tf.transpose(y_pred, [0, 3, 1, 2]), 
@@ -32,15 +34,17 @@ def Custom_SSIM(y_true, y_pred):
     true_max = tf.reduce_max(y_true)
     
     
-    f1 = lambda: tf.constant(1)
-    f2 = lambda: tf.constant(255)
-    f3 = lambda: tf.constant(65535)
-    max_val = tf.case({tf.greater(true_max, 255) : f3, tf.greater(true_max, 1) : f2},
-                      default=f1, exclusive=False)
+#     f1 = lambda: tf.constant(1)
+#     f2 = lambda: tf.constant(255)
+#     f3 = lambda: tf.constant(65535)
+#     max_val = tf.case({tf.greater(true_max, 255) : f3, tf.greater(true_max, 1) : f2},
+#                       default=f1, exclusive=False)
     
-    output = tf.image.ssim(tmp_true, tmp_pred, max_val)
-    output = tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1]])
-    return 1-tf.reduce_mean(output, axis=1)
+    
+    output = tf.map_fn(lambda x : tf.image.ssim(x[0], x[1], tf.reduce_max(x[0])), elems=(tmp_true, tmp_pred), dtype=tf.float64)
+    #output = tf.image.ssim(tmp_true, tmp_pred, max_val)
+    #output = tf.reshape(output, [tf.shape(y_true)[0], tf.shape(y_true)[-1]])
+    return output#tf.reduce_mean(output, axis=1)
 
 def Custom_MS_SSIM(y_true, y_pred):
     """

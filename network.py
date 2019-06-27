@@ -86,3 +86,64 @@ def discriminator(model = 'vgg', n_slice=6, case=1):
     print("Trainable Parameter of Model : ", format(Net.count_params()-non_train_params, ','))
     print("Non-Trainable Parameter of Model : ", format(non_train_params, ','))
     return Net
+
+
+def unet():
+    x = layer.Input(shape=(None, None, 6))
+    block1 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block1_conv1')(x)
+    block1 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block1_conv2')(block1)
+    
+    pool1 = layers.Conv2D(64, 2, strides=(2, 2), name='block1_conv3')(block1)
+    
+    block2 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block2_conv1')(pool1)
+    block2 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block2_conv2')(block2)
+    
+    pool2 = layers.Conv2D(128, 2, strides=(2, 2), name='block2_conv3')(block2)
+    
+    block3 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block3_conv1')(pool2)
+    block3 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block3_conv2')(block3)
+    block3 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block3_conv3')(block3)
+    
+    pool3 = layers.Conv2D(256, 2, strides=(2, 2), name='block3_conv4')(block3)
+    
+    block4 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block4_conv1')(pool3)
+    block4 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block4_conv2')(block4)
+    block4 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block4_conv3')(block4)
+    
+    pool4 = layers.Conv2D(512, 2, strides=(2, 2), name='block4_conv4')(block4)
+    
+    block5 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block5_conv1')(pool4)
+    block5 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block5_conv2')(block5)
+    block5 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block5_conv3')(block5)
+    
+    unpool1 = layers.Conv2DTranspose(512, 4, strides=(2, 2), padding='same')(block5)
+    #unpool1 = layers.UpSampling2D()
+    concat1 = layers.Concatenate(axis = 3)([unpool1, block4])
+    block6 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block6_conv1')(concat1)
+    block6 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block6_conv2')(block6)
+    block6 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block6_conv3')(block6)
+    
+    unpool2 = layers.Conv2DTranspose(256, 4, strides=(2, 2), padding='same')(block6)
+    concat2 = layers.Concatenate(axis = 3)([unpool2, block3])
+    block7 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block7_conv1')(concat2)
+    block7 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block7_conv2')(block7)
+    block7 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block7_conv3')(block7)
+    
+    unpool3 = layers.Conv2DTranspose(128, 4, strides=(2, 2), padding='same')(block7)
+    concat3 = layers.Concatenate(axis = 3)([unpool3, block2])
+    block8 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block8_conv1')(concat3)
+    block8 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block8_conv2')(block8)
+    
+    unpool4 = layers.Conv2DTranspose(128, 4, strides=(2, 2), padding='same')(block8)
+    concat4 = layers.Concatenate(axis = 3)([unpool4, block1])
+    block9 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block9_conv1')(concat4)
+    block9 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block9_conv2')(block9)
+    
+    output = layers.Conv2D(12, 3, padding='same', activation='relu', name='output')(block9)
+    non_train_params = [layer.shape.num_elements() for layer in Net.non_trainable_weights]
+    non_train_params = sum(non_train_params)
+    print("\n=========== Information about Whole Network ===========")
+    print("Total Parameter of Model : ", format(Net.count_params(), ','))
+    print("Trainable Parameter of Model : ", format(Net.count_params()-non_train_params, ','))
+    print("Non-Trainable Parameter of Model : ", format(non_train_params, ','))
+    return Model(inputs = x, outputs = output)
