@@ -2,6 +2,7 @@ from tensorflow.keras import layers, models, activations, optimizers
 import sys
 sys.path.append(['.','..'])
 from utils import *
+from layer import *
 
 def generator(model = 'vgg', n_slice=6, case=1):
     '''
@@ -88,62 +89,123 @@ def discriminator(model = 'vgg', n_slice=6, case=1):
     return Net
 
 
-def unet():
-    x = layer.Input(shape=(None, None, 6))
+def unet(n_slice=6, case=1):
+    x = layers.Input(shape=(None, None, 3))
     block1 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block1_conv1')(x)
     block1 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block1_conv2')(block1)
-    
+
     pool1 = layers.Conv2D(64, 2, strides=(2, 2), name='block1_conv3')(block1)
-    
+
     block2 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block2_conv1')(pool1)
     block2 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block2_conv2')(block2)
-    
+
     pool2 = layers.Conv2D(128, 2, strides=(2, 2), name='block2_conv3')(block2)
-    
+
     block3 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block3_conv1')(pool2)
     block3 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block3_conv2')(block3)
     block3 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block3_conv3')(block3)
-    
+
     pool3 = layers.Conv2D(256, 2, strides=(2, 2), name='block3_conv4')(block3)
-    
+
     block4 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block4_conv1')(pool3)
     block4 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block4_conv2')(block4)
     block4 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block4_conv3')(block4)
-    
+
     pool4 = layers.Conv2D(512, 2, strides=(2, 2), name='block4_conv4')(block4)
-    
+
     block5 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block5_conv1')(pool4)
     block5 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block5_conv2')(block5)
     block5 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block5_conv3')(block5)
-    
+
     unpool1 = layers.Conv2DTranspose(512, 4, strides=(2, 2), padding='same')(block5)
-    #unpool1 = layers.UpSampling2D()
     concat1 = layers.Concatenate(axis = 3)([unpool1, block4])
     block6 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block6_conv1')(concat1)
     block6 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block6_conv2')(block6)
     block6 = layers.Conv2D(512, 3, padding='same', activation='relu', name='block6_conv3')(block6)
-    
+
     unpool2 = layers.Conv2DTranspose(256, 4, strides=(2, 2), padding='same')(block6)
     concat2 = layers.Concatenate(axis = 3)([unpool2, block3])
     block7 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block7_conv1')(concat2)
     block7 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block7_conv2')(block7)
     block7 = layers.Conv2D(256, 3, padding='same', activation='relu', name='block7_conv3')(block7)
-    
+
     unpool3 = layers.Conv2DTranspose(128, 4, strides=(2, 2), padding='same')(block7)
     concat3 = layers.Concatenate(axis = 3)([unpool3, block2])
     block8 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block8_conv1')(concat3)
     block8 = layers.Conv2D(128, 3, padding='same', activation='relu', name='block8_conv2')(block8)
-    
+
     unpool4 = layers.Conv2DTranspose(128, 4, strides=(2, 2), padding='same')(block8)
     concat4 = layers.Concatenate(axis = 3)([unpool4, block1])
     block9 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block9_conv1')(concat4)
     block9 = layers.Conv2D(64, 3, padding='same', activation='relu', name='block9_conv2')(block9)
-    
-    output = layers.Conv2D(12, 3, padding='same', activation='relu', name='output')(block9)
+
+    output = layers.Conv2D(n_slice, 3, padding='same', activation='relu', name='output')(block9)
+
+    if case == 2:
+        Net = models.Model(x, output)
+    else :
+        Net = models.Model(x, [output, output])
+
     non_train_params = [layer.shape.num_elements() for layer in Net.non_trainable_weights]
     non_train_params = sum(non_train_params)
     print("\n=========== Information about Whole Network ===========")
     print("Total Parameter of Model : ", format(Net.count_params(), ','))
     print("Trainable Parameter of Model : ", format(Net.count_params()-non_train_params, ','))
     print("Non-Trainable Parameter of Model : ", format(non_train_params, ','))
-    return Model(inputs = x, outputs = output)
+    return Net
+
+def res_unet(n_slice=6, case=1):
+    x = layers.Input(shape=(None, None, 3))
+    block1 = res_block_original(x, 16, name='block_1_1')
+    block1 = res_block_original(block1, 16, identity=False, name='block_1_2')
+
+    block2 = res_block_original(block1, 32, stride=2, name='block_2_1')
+    block2 = res_block_original(block2, 32, identity=False, name='block_2_2')
+    block2 = res_block_original(block2, 32, identity=False, name='block_2_3')
+
+    block3 = res_block_original(block2, 64, stride=2, name='block_3_1')
+    block3 = res_block_original(block3, 64, identity=False, name='block_3_2')
+    block3 = res_block_original(block3, 64, identity=False, name='block_3_3')
+
+    block4 = res_block_original(block3, 128, stride=2, name='block_4_1')
+    block4 = res_block_original(block4, 128, identity=False, name='block_4_2')
+    block4 = res_block_original(block4, 128, identity=False, name='block_4_3')
+
+    block5 = res_block_original(block4, 256, stride=2, name='block_5_1')
+    block5 = res_block_original(block5, 256, identity=False, name='block_5_2')
+    block5 = res_block_original(block5, 256, identity=False, name='block_5_3')
+
+    up_block4 = layers.Conv2DTranspose(512, 4, strides=(2,2), padding='same', name='up_block4_transpose')(block5)
+    up_block4 = layers.Concatenate(axis=3, name='up_block4_concat')([block4, up_block4])
+    up_block4 = res_block_original(up_block4, 128,  name='up_block4')
+    up_block4 = res_block_original(up_block4, 128, identity=False, name='up_block4')
+
+    up_block3 = layers.Conv2DTranspose(256, 4, strides=(2,2), padding='same', name='up_block3_transpose')(up_block4)
+    up_block3 = layers.Concatenate(axis=3, name='up_block3_concat')([block3, up_block3])
+    up_block3 = res_block_original(up_block3, 64,  name='up_block3')
+    up_block3 = res_block_original(up_block3, 64, identity=False, name='up_block3')
+
+    up_block2 = layers.Conv2DTranspose(128, 4, strides=(2,2), padding='same', name='up_block2_transpose')(up_block3)
+    up_block2 = layers.Concatenate(axis=3, name='up_block2_concat')([block2, up_block2])
+    up_block2 = res_block_original(up_block2, 32, name='up_block2')
+    up_block2 = res_block_original(up_block2, 32, identity=False, name='up_block2')
+
+    up_block1 = layers.Conv2DTranspose(64, 4, strides=(2,2), padding='same', name='up_block1_transpose')(up_block2)
+    up_block1 = layers.Concatenate(axis=3, name='up_block1_concat')([block1, up_block1])
+    up_block1 = res_block_original(up_block1, 16, name='up_block1')
+    up_block1 = res_block_original(up_block1, 16, identity=False, name='up_block1')
+
+    output = layers.Conv2D(n_slice, 3, padding='same', activation='relu', name='prediction')(up_block1)
+    
+    if case == 2:
+        Net = models.Model(x, output)
+    else :
+        Net = models.Model(x, [output, output])
+
+    non_train_params = [layer.shape.num_elements() for layer in Net.non_trainable_weights]
+    non_train_params = sum(non_train_params)
+    print("\n=========== Information about Whole Network ===========")
+    print("Total Parameter of Model : ", format(Net.count_params(), ','))
+    print("Trainable Parameter of Model : ", format(Net.count_params()-non_train_params, ','))
+    print("Non-Trainable Parameter of Model : ", format(non_train_params, ','))
+    return Net

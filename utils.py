@@ -96,7 +96,7 @@ def data_loader_v1(PATH, val_idx = 0, img = 'rsl'):
     
     return train_t1, train_dante, val_t1[2:], val_dante[2:]
 
-def data_loader_v2(PATH, val_idx = 0, img = 'rsl'):
+def data_loader_v2(PATH, val_idx = 0, img = 'rsl', norm=False):
     train_low = []
     train_high = None
     
@@ -110,6 +110,9 @@ def data_loader_v2(PATH, val_idx = 0, img = 'rsl'):
     for i, pat in enumerate(Pat_lists):
         Pat_path = os.path.join(PATH, pat)
         tmp_t1, tmp_dante = load_nii_multi(Pat_path,  img = img) # (H, W, S)
+        if norm:
+            tmp_t1 = tmp_t1/tmp_t1.max()
+            tmp_dante = tmp_dante/tmp_dante.max()
         h, w, s = tmp_dante.shape
         
         tmp_dante = np.array(np.dsplit(tmp_dante, s/6)) # (S/6, H, W, 6)
@@ -149,6 +152,9 @@ def data_loader_v2(PATH, val_idx = 0, img = 'rsl'):
     
     Pat_path = os.path.join(PATH, val_pat)
     test_t1, val_high = load_nii_multi(Pat_path,  img = img)
+    if norm:
+        test_t1 = test_t1/test_t1.max()
+        val_high = val_high/val_high.max()
     h, w, s = val_high.shape
     val_high = np.array(np.dsplit(val_high, s/6))
     mean_dante = val_high.mean(axis=-1)  # (S/6, H, W)
@@ -186,7 +192,7 @@ def data_loader_v2(PATH, val_idx = 0, img = 'rsl'):
     return np.array(train_low), train_high, np.array(val_low), val_high[1:], np.array(test_low)
 
 
-def data_loader_v3(PATH, val_idx = 0, img = 'rsl'):
+def data_loader_v3(PATH, val_idx = 0, img = 'rsl', norm=False):
     train_low = []
     train_high = None
     val_low = []
@@ -204,7 +210,9 @@ def data_loader_v3(PATH, val_idx = 0, img = 'rsl'):
         Pat_path = os.path.join(PATH, pat)
         #print(Pat_path)
         tmp_t1, tmp_dante = load_nii_multi(Pat_path,  img = img) # (H, W, S)
-        
+        if norm:
+            tmp_t1 = tmp_t1/tmp_t1.max()
+            tmp_dante = tmp_dante/tmp_dante.max()
         # Spliting dante data (H, W, S) -> (S/6, H, W, 6)
         _, _, s = tmp_dante.shape
         #print(tmp_dante.shape)
@@ -256,7 +264,9 @@ def data_loader_v3(PATH, val_idx = 0, img = 'rsl'):
     # Load image
     Pat_path = os.path.join(PATH, val_pat)
     test_t1, tmp_val_high = load_nii_multi(Pat_path,  img = img)
-    
+    if norm:
+        test_t1 = test_t1/test_t1.max()
+        tmp_val_high = tmp_val_high/tmp_val_high.max()
     # Spliting dante data (H, W, S) -> (S/6, H, W, 6)
     h, w, s = tmp_val_high.shape
     tmp_val_high = np.array(np.dsplit(tmp_val_high, s/6))[1:]
