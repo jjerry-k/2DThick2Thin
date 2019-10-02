@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def Custom_L1(y_true, y_pred):
+def Custom_MAE(y_true, y_pred):
     Err = y_true - y_pred
     Abs = tf.abs(Err)
     Mean = tf.reduce_mean(Abs, axis = [1, 2, 3])
@@ -40,7 +40,7 @@ def Custom_SSIM(y_true, y_pred):
     return tf.clip_by_value(tf.reduce_mean((1.-ssim)/2., axis=1), 0, 1)    
 
 def Custom_L1_SSIM(y_true, y_pred):
-    loss1 = Custom_L1(y_true, y_pred)
+    loss1 = Custom_MAE(y_true, y_pred)
     loss2 = Custom_SSIM(y_true, y_pred)
     return 95*loss1 + 5*loss2
 
@@ -50,7 +50,7 @@ def Custom_L2_SSIM(y_true, y_pred):
     return 95*loss1 + 5*loss2
 
 def Custom_L1_MI(y_true, y_pred):
-    loss1 = Custom_L1(y_true, y_pred)
+    loss1 = Custom_MAE(y_true, y_pred)
     loss2 = mutual_information(y_true, y_pred)
     return 95*loss1 + 5*loss2
 
@@ -66,7 +66,7 @@ class multi_loss():
         self.type = loss_type
     def loss(self, y_true, y_pred):
         if self.type == 'L1SSIM':
-            loss1 = Custom_L1(y_true, y_pred)
+            loss1 = Custom_MAE(y_true, y_pred)
             loss2 = Custom_SSIM(y_true, y_pred)
             return self.a*loss1 + self.b*loss2
         
@@ -76,7 +76,7 @@ class multi_loss():
             return self.a*loss1 + self.b*loss2
         
         elif self.type == 'L1MI':
-            loss1 = Custom_L1(y_true, y_pred)
+            loss1 = Custom_MAE(y_true, y_pred)
             loss2 = mutual_information(y_true, y_pred)
             return self.a*loss1 + self.b*loss2
         
@@ -126,9 +126,11 @@ def tf_joint_histogram(y_true, y_pred):
     
     
     # Intensity Scaling
-    max_int = tf.reduce_max(y_true, axis = [1,2], keepdims=True)
-    tmp_true = tf.round(y_true / max_int * vmax)
-    tmp_pred = tf.round(y_pred / max_int * vmax)
+    max_true = tf.reduce_max(y_true, axis = [1,2], keepdims=True)
+    max_pred = tf.reduce_max(y_pred, axis = [1,2], keepdims=True)
+    
+    tmp_true = tf.round(y_true / max_true * vmax)
+    tmp_pred = tf.round(y_pred / max_pred * vmax)
     
     #print("joint2")
     # [batch, height, width, channel]
@@ -165,3 +167,57 @@ def mutual_information(y_true, y_pred):
     #print("mutual3")
     output = tf.reshape(output, [tf.shape(joint_histogram)[0], tf.shape(joint_histogram)[-1]])
     return tf.cast( - tf.reduce_mean(output, axis=1), 'float32')
+
+
+
+def relu2dgdlloss(x, y):    
+    x_cen = x[:, 1:-1, 1:-1]
+    x_shape = tf.shape(x)
+    grad_x = tf.zeros_like(x_cen)
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            x_slice = tf.slice(x, [0, i+1, j+1, 0], [x_shape[0], x_shape[1]-2, x_shape[2]-2, x_shape[3]])
+            if i*i + j*j == 0:
+                temp = tf.zeros_like(x_cen)
+            else:
+                temp = tf.scalar_mul(1.0 / tf.sqrt(tf.cast(i * i + j * j, tf.float32)), tf.nn.relu(x_slice - x_cen))
+            grad_x = grad_x + temp
+
+    y_cen = y[:, 1:-1, 1:-1]
+    y_shape = tf.shape(y)
+    grad_y = tf.zeros_like(y_cen)
+    for ii in range(-1, 2):
+        for jj in range(-1, 2):
+            y_slice = tf.slice(y, [0, ii + 1, jj + 1, 0], [y_shape[0], y_shape[1] - 2, y_shape[2] - 2, y_shape[3]])
+            if ii*ii + jj*jj == 0:
+                temp = tf.zeros_like(y_cen)
+            else:
+                temp = tf.scalar_mul(1.0 / tf.sqrt(tf.cast(ii * ii + jj * jj, tf.float32)), tf.nn.relu(y_slice - y_cen))
+            grad_y = grad_y + temp
+
+    gd = tf.abs(grad_x - grad_y)
+    gdl = tf.reduce_sum(gd)
+    return gdl
+
+def l2_loss(x, y):
+    loss = tf.reduce_sum(tf.square(x - y))
+    return loss
+
+def l1_loss(x, y):
+    loss = tf.reduce_sum(tf.abs(x - y))
+    return loss
+
+def l2_and_gradient_loss(y_true, y_pred):
+    alpha = 1/7.85
+    loss = l2_loss(y_true,y_pred) + alpha*relu2dgdlloss(y_true,y_pred)
+    return loss
+
+def mse_and_gradient_loss(y_true, y_pred):
+    alpha = 1/7.85
+    loss = Custom_MSE(y_true, y_pred) + alpha*relu2dgdlloss(y_true,y_pred)
+    return loss
+
+def l1_and_gradient_loss(y_true, y_pred):
+    alpha = 1/7.85
+    loss = l1_loss(y_true, y_pred) + alpha*relu2dgdlloss(y_true,y_pred)
+    return loss

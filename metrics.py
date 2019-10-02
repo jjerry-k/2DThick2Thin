@@ -59,7 +59,7 @@ def MI(y_true, y_pred):
         for ch_idx in range(ch):
             true_max = y_true[b_idx, ..., ch_idx].max()
             pred_vmin = y_pred[b_idx, ..., ch_idx].max()
-            output[b_idx, ch_idx] = mi((y_true[b_idx, ..., ch_idx]/true_max*255).astype('uint8').ravel(), (y_pred[b_idx, ..., ch_idx]/pred_vmin*255).astype('uint8').ravel())
+            output[b_idx, ch_idx] = mi(y_true[b_idx, ..., ch_idx].ravel(), y_pred[b_idx, ..., ch_idx].ravel())
     return output
 
 def NMI(y_true, y_pred):
@@ -67,7 +67,5 @@ def NMI(y_true, y_pred):
     output = np.zeros((b, ch))
     for b_idx in range(b):
         for ch_idx in range(ch):
-            true_max = y_true[b_idx, ..., ch_idx].max()
-            pred_vmin = y_pred[b_idx, ..., ch_idx].max()
-            output[b_idx, ch_idx] = nmi((y_true[b_idx, ..., ch_idx]/true_max*255).astype('uint8').ravel(), (y_pred[b_idx, ..., ch_idx]/pred_vmin*255).astype('uint8').ravel())
+            output[b_idx, ch_idx] = nmi(y_true[b_idx, ..., ch_idx].ravel(), y_pred[b_idx, ..., ch_idx].ravel(), average_method='arithmetic')
     return output
