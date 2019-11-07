@@ -15,8 +15,7 @@ def psnr(y_true, y_pred):
 
     mse = tf.reduce_mean(tf.squared_difference(normed_true, normed_pred), axis= reduction_dim)
     result = tf.subtract(20. * tf.log(global_max) / tf.cast(tf.log(10.0), tf.float64),
-        np.float64(10 / np.log(10)) * tf.log(mse),
-        name='psnr')
+        np.float64(10 / np.log(10)) * tf.log(mse))
     return result
 
 
